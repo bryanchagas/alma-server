@@ -2,14 +2,14 @@ services:
   - type: web
     name: alma-server
     env: python
-    region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port 8000"
     envVars:
-      - key: GOOGLE_CLIENT_ID
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: ALMA_CLIENT_SECRET_JSON
         sync: false
-      - key: GOOGLE_CLIENT_SECRET
+      - key: ALMA_TOKEN_JSON
         sync: false
-      - key: GOOGLE_REDIRECT_URI
-        value: https://alma-server.onrender.com/oauth2/callback
