@@ -5,34 +5,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-
-
-# ============================================================
-# WRITE GOOGLE CREDS FROM ENV (REQUIRED ON RENDER)
-# ============================================================
-if not os.path.exists("client_secret.json"):
-    cs = os.getenv("ALMA_CLIENT_SECRET_JSON")
-    if cs:
-        with open("client_secret.json", "w") as f:
-            f.write(cs)
-
-if not os.path.exists("token.json"):
-    token_env = os.getenv("ALMA_TOKEN_JSON")
-    if token_env:
-        with open("token.json", "w") as f:
-            f.write(token_env)
+from google.oauth2.service_account import Credentials
 
 
 # ============================================================
 # CONFIG
 # ============================================================
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-TOKEN_FILE = "token.json"
-CLIENT_SECRET = "client_secret.json"
-
 USER_EMAIL = "bryanchagas@gmail.com"
 ALMA_CALENDAR_NAME = "Alma — Ritmo Comportamental"
 
@@ -52,26 +32,27 @@ app.add_middleware(
 
 
 # ============================================================
-# AUTH HELPERS
+# AUTH WITH SERVICE ACCOUNT
 # ============================================================
-def get_credentials():
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-        return creds
-
-    # Local OAuth login (apenas quando rodando no seu Mac)
-    flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
-    creds = flow.run_local_server(port=0)
-
-    with open(TOKEN_FILE, "w") as token:
-        token.write(creds.to_json())
-
-    return creds
-
-
 def get_calendar_service():
-    creds = get_credentials()
-    return build("calendar", "v3", credentials=creds)
+    """
+    Loads Google Calendar credentials from the service account JSON
+    stored in the environment variable GOOGLE_SERVICE_ACCOUNT_JSON.
+    """
+    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+    if not service_account_json:
+        raise Exception("Missing GOOGLE_SERVICE_ACCOUNT_JSON environment variable")
+
+    info = json.loads(service_account_json)
+
+    creds = Credentials.from_service_account_info(
+        info,
+        scopes=SCOPES
+    )
+
+    service = build("calendar", "v3", credentials=creds)
+    return service
 
 
 # ============================================================
