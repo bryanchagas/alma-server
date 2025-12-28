@@ -6,103 +6,77 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# -----------------------------------------------------------
+
+# ============================================================
+# WRITE GOOGLE CREDS FROM ENV (REQUIRED ON RENDER)
+# ============================================================
+if not os.path.exists("client_secret.json"):
+    cs = os.getenv("ALMA_CLIENT_SECRET_JSON")
+    if cs:
+        with open("client_secret.json", "w") as f:
+            f.write(cs)
+
+if not os.path.exists("token.json"):
+    token_env = os.getenv("ALMA_TOKEN_JSON")
+    if token_env:
+        with open("token.json", "w") as f:
+            f.write(token_env)
+
+
+# ============================================================
 # CONFIG
-# -----------------------------------------------------------
+# ============================================================
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-
-# Render: credenciais vêm do ambiente
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://alma-server.onrender.com/oauth2/callback")
-
 TOKEN_FILE = "token.json"
+CLIENT_SECRET = "client_secret.json"
 
+USER_EMAIL = "bryanchagas@gmail.com"
+ALMA_CALENDAR_NAME = "Alma — Ritmo Comportamental"
+
+
+# ============================================================
+# FASTAPI APP
+# ============================================================
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],            # permitir chamadas do ChatGPT
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# -----------------------------------------------------------
-# OAUTH FLOW (RENDER)
-# -----------------------------------------------------------
-def build_flow():
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "redirect_uris": [REDIRECT_URI],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        },
-        scopes=SCOPES,
-    )
+# ============================================================
+# AUTH HELPERS
+# ============================================================
+def get_credentials():
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        return creds
+
+    # Local OAuth login (apenas quando rodando no seu Mac)
+    flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
+    creds = flow.run_local_server(port=0)
+
+    with open(TOKEN_FILE, "w") as token:
+        token.write(creds.to_json())
+
+    return creds
 
 
-def save_credentials(creds):
-    with open(TOKEN_FILE, "w") as f:
-        f.write(creds.to_json())
-
-
-def load_credentials():
-    if not os.path.exists(TOKEN_FILE):
-        return None
-    return Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-
-# -----------------------------------------------------------
-# ROUTES
-# -----------------------------------------------------------
-@app.get("/")
-def home():
-    return {"status": "ok", "message": "Alma Server online"}
-
-
-@app.get("/auth")
-def auth_step1():
-    flow = build_flow()
-    flow.redirect_uri = REDIRECT_URI
-    auth_url, _ = flow.authorization_url(prompt="consent")
-    return {"auth_url": auth_url}
-
-
-@app.get("/oauth2/callback")
-def auth_callback(code: str):
-    flow = build_flow()
-    flow.redirect_uri = REDIRECT_URI
-    flow.fetch_token(code=code)
-
-    creds = flow.credentials
-    save_credentials(creds)
-
-    return {"status": "authenticated", "message": "Alma calendar access granted."}
-
-
-# -----------------------------------------------------------
-# SERVICE HELPERS
-# -----------------------------------------------------------
-def get_service():
-    creds = load_credentials()
-    if not creds:
-        raise HTTPException(status_code=401, detail="Not authenticated with Google Calendar")
-
+def get_calendar_service():
+    creds = get_credentials()
     return build("calendar", "v3", credentials=creds)
 
 
-ALMA_CALENDAR_NAME = "Alma — Ritmo Comportamental"
-
-
+# ============================================================
+# CALENDAR HELPERS
+# ============================================================
 def get_or_create_alma_calendar(service):
     calendars = service.calendarList().list().execute().get("items", [])
     for cal in calendars:
@@ -117,9 +91,9 @@ def get_or_create_alma_calendar(service):
     return created["id"]
 
 
-# -----------------------------------------------------------
-# MODELS
-# -----------------------------------------------------------
+# ============================================================
+# REQUEST MODELS
+# ============================================================
 class EventRequest(BaseModel):
     title: str
     start: str
@@ -132,12 +106,13 @@ class DeleteRequest(BaseModel):
     calendar_id: str
 
 
-# -----------------------------------------------------------
-# ENDPOINTS
-# -----------------------------------------------------------
+# ============================================================
+# ROUTES
+# ============================================================
+
 @app.get("/calendar/upcoming")
-def get_upcoming():
-    service = get_service()
+def get_upcoming_events():
+    service = get_calendar_service()
     now = dt.datetime.utcnow().isoformat() + "Z"
 
     events = (
@@ -157,8 +132,8 @@ def get_upcoming():
 
 
 @app.get("/calendar/free-slots")
-def free_slots():
-    service = get_service()
+def get_free_slots():
+    service = get_calendar_service()
     now = dt.datetime.utcnow()
     end_of_day = now.replace(hour=23, minute=59)
 
@@ -175,40 +150,41 @@ def free_slots():
         .get("items", [])
     )
 
-    free = []
+    free_blocks = []
     cursor = now
 
     for event in events:
         start = dt.datetime.fromisoformat(event["start"]["dateTime"])
         if start > cursor:
-            free.append({"from": cursor.isoformat(), "to": start.isoformat()})
+            free_blocks.append({"from": cursor.isoformat(), "to": start.isoformat()})
         cursor = dt.datetime.fromisoformat(event["end"]["dateTime"])
 
     if cursor < end_of_day:
-        free.append({"from": cursor.isoformat(), "to": end_of_day.isoformat()})
+        free_blocks.append({"from": cursor.isoformat(), "to": end_of_day.isoformat()})
 
-    return {"free_slots": free}
+    return {"free_slots": free_blocks}
 
 
 @app.post("/calendar/add-event")
-def add_event(req: EventRequest):
-    service = get_service()
-    alma_cal_id = get_or_create_alma_calendar(service)
+def add_event(event: EventRequest):
+    service = get_calendar_service()
+    alma_calendar_id = get_or_create_alma_calendar(service)
 
-    body = {
-        "summary": req.title,
-        "description": req.description,
-        "start": {"dateTime": req.start, "timeZone": "America/Sao_Paulo"},
-        "end": {"dateTime": req.end, "timeZone": "America/Sao_Paulo"},
+    event_body = {
+        "summary": event.title,
+        "description": event.description,
+        "start": {"dateTime": event.start, "timeZone": "America/Sao_Paulo"},
+        "end": {"dateTime": event.end, "timeZone": "America/Sao_Paulo"},
     }
 
-    created = service.events().insert(calendarId=alma_cal_id, body=body).execute()
+    created = service.events().insert(calendarId=alma_calendar_id, body=event_body).execute()
     return {"status": "created", "event": created}
 
 
 @app.post("/calendar/delete-event")
 def delete_event(req: DeleteRequest):
-    service = get_service()
+    service = get_calendar_service()
+
     try:
         service.events().delete(calendarId=req.calendar_id, eventId=req.event_id).execute()
         return {"status": "deleted"}
