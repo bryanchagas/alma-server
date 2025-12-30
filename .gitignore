@@ -1,4 +1,53 @@
-venv/
+# ================================
+# PYTHON BASICS
+# ================================
 __pycache__/
-token.json
-client_secret.json
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# ================================
+# SECRETS & SENSITIVE FILES
+# ================================
+# ⚠️ Nunca versionar credenciais!
+*.json
+
+# Mas permitir esses arquivos públicos da API:
+!openai.yaml
+!openapi.yaml
+
+# ================================
+# OS / EDITOR ARTIFACTS
+# ================================
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Other editors
+.idea/
+*.swp
+*.swo
+
+# ================================
+# RENDER / DEPLOY
+# ================================
+# Logs
+*.log
+
+# Ignore potentially large temporary files
+tmp/
+temp/
