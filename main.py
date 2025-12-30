@@ -14,7 +14,7 @@ from google.oauth2.service_account import Credentials
 # CONFIG
 # ============================================================
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-USER_EMAIL = "bryanchagas@gmail.com"   # Seu calendário real
+USER_EMAIL = "bryanchagas@gmail.com"   # Calendário pessoal real
 ALMA_CALENDAR_NAME = "Alma — Ritmo Comportamental"
 
 
@@ -37,6 +37,7 @@ app.add_middleware(
 # ============================================================
 @app.get("/.well-known/openai.yaml", response_class=PlainTextResponse)
 def serve_openai_manifest():
+    """Serves the OpenAI Actions manifest so GPT can ingest it."""
     try:
         with open("openai.yaml", "r") as f:
             return PlainTextResponse(f.read(), media_type="text/yaml")
@@ -45,31 +46,39 @@ def serve_openai_manifest():
 
 
 # ============================================================
-# SERVE OPENAPI SPECIFICATION
+# SERVE OPENAPI SPECIFICATION (GPT ACTIONS REQUIREMENT)
 # ============================================================
 @app.get("/openapi.yaml", response_class=PlainTextResponse)
 def serve_openapi_spec():
+    """
+    MUST return plain text YAML.
+
+    If the browser tries to download instead of showing text,
+    the GPT Builder CANNOT read the schema.
+
+    Therefore we force Content-Type = text/yaml.
+    """
     try:
         with open("openapi.yaml", "r") as f:
-            return PlainTextResponse(f.read(), media_type="application/yaml")
-    except Exception:
-        raise HTTPException(status_code=500, detail="Cannot load OpenAPI spec file.")
+            return PlainTextResponse(f.read(), media_type="text/yaml")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================
 # AUTH WITH SERVICE ACCOUNT
 # ============================================================
 def get_calendar_service():
-    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    """Loads Google Calendar credentials from GOOGLE_SERVICE_ACCOUNT_JSON env var."""
+    content = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
-    if not service_account_json:
+    if not content:
         raise Exception("Missing GOOGLE_SERVICE_ACCOUNT_JSON environment variable")
 
-    info = json.loads(service_account_json)
+    info = json.loads(content)
 
     creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-    service = build("calendar", "v3", credentials=creds)
-    return service
+    return build("calendar", "v3", credentials=creds)
 
 
 # ============================================================
@@ -116,7 +125,7 @@ def get_upcoming_events():
     events = (
         service.events()
         .list(
-            calendarId=USER_EMAIL,   # <<< AQUI!
+            calendarId=USER_EMAIL,
             timeMin=now,
             maxResults=10,
             singleEvents=True,
@@ -138,7 +147,7 @@ def get_free_slots():
     events = (
         service.events()
         .list(
-            calendarId=USER_EMAIL,  # <<< AQUI!
+            calendarId=USER_EMAIL,
             timeMin=now.isoformat() + "Z",
             timeMax=end_of_day.isoformat() + "Z",
             singleEvents=True,
