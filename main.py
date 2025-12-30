@@ -3,6 +3,7 @@ import json
 import datetime as dt
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from googleapiclient.discovery import build
@@ -24,11 +25,25 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # permitir chamadas do ChatGPT
+    allow_origins=["*"],            # permitir chamadas externas
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================
+# SERVE OPENAI ACTIONS MANIFEST
+# ============================================================
+@app.get("/.well-known/openai.yaml", response_class=PlainTextResponse)
+def serve_openai_manifest():
+    """Serves the OpenAI Actions manifest file located at the project root."""
+    try:
+        with open("openai.yaml", "r") as f:
+            content = f.read()
+        return PlainTextResponse(content, media_type="text/yaml")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================
@@ -61,7 +76,7 @@ def get_calendar_service():
 def get_or_create_alma_calendar(service):
     calendars = service.calendarList().list().execute().get("items", [])
     for cal in calendars:
-        if cal["summary"] == ALMA_CALENDAR_NAME:
+        if cal.get("summary") == ALMA_CALENDAR_NAME:
             return cal["id"]
 
     new_calendar = {
