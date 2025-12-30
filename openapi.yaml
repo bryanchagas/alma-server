@@ -1,0 +1,68 @@
+openapi: 3.1.0
+info:
+  title: Alma Calendar API
+  version: 1.0.0
+
+servers:
+  - url: https://alma-server-v23b.onrender.com
+
+paths:
+  /calendar/upcoming:
+    get:
+      operationId: listUpcomingEvents
+      summary: Lista eventos futuros do calendário principal.
+      responses:
+        "200":
+          description: Lista de eventos futuros.
+
+  /calendar/free-slots:
+    get:
+      operationId: listFreeSlots
+      summary: Identifica janelas de tempo livre no restante do dia.
+      responses:
+        "200":
+          description: Lista de intervalos disponíveis.
+
+  /calendar/add-event:
+    post:
+      operationId: addCalendarEvent
+      summary: Adiciona um evento ao calendário Alma.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                start:
+                  type: string
+                end:
+                  type: string
+                description:
+                  type: string
+              required: [title, start, end]
+      responses:
+        "200":
+          description: Evento criado com sucesso.
+
+  /calendar/delete-event:
+    post:
+      operationId: deleteCalendarEvent
+      summary: Remove um evento do calendário especificado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_id:
+                  type: string
+                calendar_id:
+                  type: string
+              required: [event_id, calendar_id]
+      responses:
+        "200":
+          description: Evento removido com sucesso.

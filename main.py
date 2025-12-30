@@ -47,6 +47,19 @@ def serve_openai_manifest():
 
 
 # ============================================================
+# SERVE OPENAPI SPECIFICATION
+# ============================================================
+@app.get("/openapi.yaml", response_class=PlainTextResponse)
+def serve_openapi_spec():
+    """Serves the OpenAPI specification used by ChatGPT Actions."""
+    try:
+        with open("openapi.yaml", "r") as f:
+            return PlainTextResponse(f.read(), media_type="application/yaml")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Cannot load OpenAPI spec file.")
+
+
+# ============================================================
 # AUTH WITH SERVICE ACCOUNT
 # ============================================================
 def get_calendar_service():

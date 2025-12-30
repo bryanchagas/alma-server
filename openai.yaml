@@ -1,85 +1,26 @@
-openapi: 1.0.0
-info:
-  title: Alma – Sistema Inteligente de Análise e Rotina
-  description: |
-    A Alma é um sistema inteligente de análise comportamental e saúde integral,
-    criado por Bryan Chagas. Ela combina dados objetivos — como rotina, biometria,
-    performance física, sono, nutrição e ritmo corporal — com uma compreensão
-    profunda das dimensões emocional, neurológica e espiritual da vida.
+schema_version: 1
 
-    Ela observa padrões, identifica tendências, mede progresso e interpreta a relação
-    entre hábitos, corpo e estado interno. A partir disso, sugere ajustes que tornam
-    os dias mais equilibrados, conscientes e intencionais, unindo técnica e sensibilidade.
+name_for_human: "Alma – Sistema Inteligente de Análise e Rotina"
+name_for_model: "alma_system"
 
-    A Alma organiza sua rotina, interpreta sinais fisiológicos e integra vida pessoal,
-    profissional e espiritual em um fluxo coerente e saudável.
+description_for_human: >
+  A Alma é um sistema inteligente de análise comportamental e saúde integral.
+  Ela combina dados objetivos — como rotina, biometria, performance física,
+  sono, nutrição e ritmo corporal — com uma compreensão profunda das dimensões
+  emocional, neurológica e espiritual da vida. A Alma identifica padrões,
+  mede progresso e organiza a rotina de forma equilibrada, coerente e intencional.
 
-  version: 1.0.0
+description_for_model: >
+  API que permite acessar eventos, criar compromissos e analisar a rotina de Bryan
+  usando o Google Calendar como fonte principal. Suporta listagem de eventos futuros,
+  janelas de tempo livre, criação e remoção de eventos.
+
+contact_email: "bryanchagas@gmail.com"
+legal_info_url: "https://alma-server-v23b.onrender.com"
+
+api:
+  type: "openapi"
+  url: "https://alma-server-v23b.onrender.com/openapi.yaml"
 
 servers:
-  - url: https://alma-server-v23b.onrender.com
-
-paths:
-
-  /calendar/upcoming:
-    get:
-      operationId: listUpcomingEvents
-      summary: Lista eventos futuros do calendário principal.
-      responses:
-        "200":
-          description: Lista de eventos futuros.
-
-  /calendar/free-slots:
-    get:
-      operationId: listFreeSlots
-      summary: Identifica janelas de tempo livre no restante do dia.
-      responses:
-        "200":
-          description: Lista de intervalos disponíveis.
-
-  /calendar/add-event:
-    post:
-      operationId: addCalendarEvent
-      summary: Adiciona um evento ao calendário Alma.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                title:
-                  type: string
-                start:
-                  type: string
-                end:
-                  type: string
-                description:
-                  type: string
-              required: [title, start, end]
-      responses:
-        "200":
-          description: Evento criado com sucesso.
-
-  /calendar/delete-event:
-    post:
-      operationId: deleteCalendarEvent
-      summary: Remove um evento do calendário especificado.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                event_id:
-                  type: string
-                calendar_id:
-                  type: string
-              required: [event_id, calendar_id]
-      responses:
-        "200":
-          description: Evento removido com sucesso.
-
-
-components: {}
+  - url: "https://alma-server-v23b.onrender.com"
