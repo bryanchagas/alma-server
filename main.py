@@ -14,7 +14,7 @@ from google.oauth2.service_account import Credentials
 # CONFIG
 # ============================================================
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-USER_EMAIL = "bryanchagas@gmail.com"
+USER_EMAIL = "bryanchagas@gmail.com"   # Seu calendário real
 ALMA_CALENDAR_NAME = "Alma — Ritmo Comportamental"
 
 
@@ -25,7 +25,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # permitir chamadas externas
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,11 +37,9 @@ app.add_middleware(
 # ============================================================
 @app.get("/.well-known/openai.yaml", response_class=PlainTextResponse)
 def serve_openai_manifest():
-    """Serves the OpenAI Actions manifest file located at the project root."""
     try:
         with open("openai.yaml", "r") as f:
-            content = f.read()
-        return PlainTextResponse(content, media_type="text/yaml")
+            return PlainTextResponse(f.read(), media_type="text/yaml")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -51,7 +49,6 @@ def serve_openai_manifest():
 # ============================================================
 @app.get("/openapi.yaml", response_class=PlainTextResponse)
 def serve_openapi_spec():
-    """Serves the OpenAPI specification used by ChatGPT Actions."""
     try:
         with open("openapi.yaml", "r") as f:
             return PlainTextResponse(f.read(), media_type="application/yaml")
@@ -63,10 +60,6 @@ def serve_openapi_spec():
 # AUTH WITH SERVICE ACCOUNT
 # ============================================================
 def get_calendar_service():
-    """
-    Loads Google Calendar credentials from the service account JSON
-    stored in the environment variable GOOGLE_SERVICE_ACCOUNT_JSON.
-    """
     service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
     if not service_account_json:
@@ -74,11 +67,7 @@ def get_calendar_service():
 
     info = json.loads(service_account_json)
 
-    creds = Credentials.from_service_account_info(
-        info,
-        scopes=SCOPES
-    )
-
+    creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     service = build("calendar", "v3", credentials=creds)
     return service
 
@@ -92,11 +81,11 @@ def get_or_create_alma_calendar(service):
         if cal.get("summary") == ALMA_CALENDAR_NAME:
             return cal["id"]
 
-    new_calendar = {
+    new_cal = {
         "summary": ALMA_CALENDAR_NAME,
         "timeZone": "America/Sao_Paulo",
     }
-    created = service.calendars().insert(body=new_calendar).execute()
+    created = service.calendars().insert(body=new_cal).execute()
     return created["id"]
 
 
@@ -127,7 +116,7 @@ def get_upcoming_events():
     events = (
         service.events()
         .list(
-            calendarId="primary",
+            calendarId=USER_EMAIL,   # <<< AQUI!
             timeMin=now,
             maxResults=10,
             singleEvents=True,
@@ -149,7 +138,7 @@ def get_free_slots():
     events = (
         service.events()
         .list(
-            calendarId="primary",
+            calendarId=USER_EMAIL,  # <<< AQUI!
             timeMin=now.isoformat() + "Z",
             timeMax=end_of_day.isoformat() + "Z",
             singleEvents=True,
